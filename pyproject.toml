@@ -23,6 +23,7 @@ python-multipart = "^0.0.9"
 fastapi-mail = "^1.4.1"
 redis = "^5.0.2"
 python-dotenv = "^1.0.1"
+fastapi-limiter = "^0.1.6"
 
 
 [build-system]
