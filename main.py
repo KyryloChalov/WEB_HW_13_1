@@ -1,16 +1,60 @@
-from fastapi import FastAPI
-from src.routes import auth, contacts, db, seed
-
-import redis.asyncio as redis
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, status
 from fastapi_limiter import FastAPILimiter
-
-from src.routes import contacts, db, auth
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from ipaddress import ip_address
 from src.conf.config import settings
+from src.routes import auth, contacts, db, seed
+from typing import Callable
 
+import re
+import redis.asyncio as redis
 import uvicorn
 
 app = FastAPI()
+
+
+origins = ["*"]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+banned_ips = [
+    ip_address("127.0.0.1"),
+]
+
+
+@app.middleware("http")
+async def ban_ips(request: Request, call_next: Callable):
+    ip = ip_address(request.client.host)
+    if ip in banned_ips:
+        return JSONResponse(
+            status_code=status.HTTP_403_FORBIDDEN, content={"detail": "You are banned"}
+        )
+    response = await call_next(request)
+    return response
+
+
+user_agent_ban_list = [r"Gecko", r"Googlebot", r"Python-urllib"]
+
+
+@app.middleware("http")
+async def user_agent_ban_middleware(request: Request, call_next: Callable):
+    user_agent = request.headers.get("user-agent")
+    for ban_pattern in user_agent_ban_list:
+        if re.search(ban_pattern, user_agent):
+            return JSONResponse(
+                status_code=status.HTTP_403_FORBIDDEN,
+                content={"detail": "You are banned"},
+            )
+    response = await call_next(request)
+    return response
 
 
 @app.get("/")
