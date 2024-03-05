@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from ipaddress import ip_address
 from src.conf.config import settings
-from src.routes import auth, contacts, db, seed
+from src.routes import auth, contacts, users, db, seed
 from typing import Callable
 
 import re
@@ -26,7 +26,8 @@ app.add_middleware(
 
 
 banned_ips = [
-    ip_address("127.0.0.1"),
+    # ip_address("127.0.0.1"),
+    ip_address("0.0.0.1"),
 ]
 
 
@@ -34,6 +35,7 @@ banned_ips = [
 async def ban_ips(request: Request, call_next: Callable):
     ip = ip_address(request.client.host)
     if ip in banned_ips:
+        print(f"{ip = }")
         return JSONResponse(
             status_code=status.HTTP_403_FORBIDDEN, content={"detail": "You are banned"}
         )
@@ -41,7 +43,7 @@ async def ban_ips(request: Request, call_next: Callable):
     return response
 
 
-user_agent_ban_list = [r"Gecko", r"Googlebot", r"Python-urllib"]
+user_agent_ban_list = [r"Googlebot", r"Python-urllib"]
 
 
 @app.middleware("http")
@@ -49,6 +51,7 @@ async def user_agent_ban_middleware(request: Request, call_next: Callable):
     user_agent = request.headers.get("user-agent")
     for ban_pattern in user_agent_ban_list:
         if re.search(ban_pattern, user_agent):
+            print(f"{ban_pattern = }")
             return JSONResponse(
                 status_code=status.HTTP_403_FORBIDDEN,
                 content={"detail": "You are banned"},
@@ -64,6 +67,7 @@ async def root():
 
 app.include_router(auth.router, prefix="/api")
 app.include_router(contacts.router, prefix="/api")
+app.include_router(users.router, prefix="/api")
 app.include_router(db.router, prefix="")
 app.include_router(seed.router, prefix="")
 
