@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, status
 from fastapi_limiter import FastAPILimiter
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,7 +12,21 @@ import re
 import redis.asyncio as redis
 import uvicorn
 
-app = FastAPI()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    r = await redis.Redis(
+        host=settings.redis_host,
+        port=settings.redis_port,
+        db=0,
+        encoding="utf-8",
+        decode_responses=True,
+    )
+    await FastAPILimiter.init(r)
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
 
 
 origins = ["*"]
@@ -72,30 +87,18 @@ app.include_router(db.router, prefix="")
 app.include_router(seed.router, prefix="")
 
 
-@app.on_event("startup")
-async def startup():
-    r = await redis.Redis(
-        host=settings.redis_host,
-        port=settings.redis_port,
-        db=0,
-        encoding="utf-8",
-        decode_responses=True,
-    )
-    await FastAPILimiter.init(r)
 
-
-# @asynccontextmanager
-# async def lifespan(app: FastAPI):
+# @app.on_event("startup")
+# async def startup():
 #     r = await redis.Redis(
-#         host=config.REDIS_DOMAIN,
-#         port=config.REDIS_PORT,
+#         host=settings.redis_host,
+#         port=settings.redis_port,
 #         db=0,
-#         password=config.REDIS_PASSWORD,
 #         encoding="utf-8",
 #         decode_responses=True,
 #     )
-#     delay = await FastAPILimiter.init(r)
-#     yield delay
+#     await FastAPILimiter.init(r)
+
 
 
 if __name__ == "__main__":
